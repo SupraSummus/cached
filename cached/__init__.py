@@ -102,6 +102,10 @@ class ProcessCache:
         write_and_close_fds(output_data)
 
     def run_cached(self, command, argv, input_data, output_fds):
+        if not isinstance(command, bytes):
+            logger.warning("got non-bytes command to run")
+        if any(map(lambda arg: not isinstance(arg, bytes), argv)):
+            logger.warning("got non-bytes command arguments")
         input_hashes = {
             fd: self.input_digest(d)
             for fd, d in input_data.items()
