@@ -1,0 +1,63 @@
+#!/usr/bin/env python
+
+import argparse
+import logging
+import signal
+import sys
+
+from cached.providers.fs import FSProcessCache
+
+
+parser = argparse.ArgumentParser(description="Cache command output.")
+parser.add_argument(
+    "-d", "--cache-dir",
+    help="directory to store cached runs",
+)
+parser.add_argument(
+    "-i", "--input",
+    type=int,
+    action='append',
+    help="mark fd as input",
+)
+parser.add_argument(
+    "-o", "--output",
+    type=int,
+    action='append',
+    help="mark fd as output",
+)
+parser.add_argument(
+    "-l", "--log",
+    dest='log', default=sys.stderr, type=argparse.FileType('w'),
+    help="where to put logs, use something like /proc/self/fd/5 for logging to custom fd",
+)
+parser.add_argument(
+    "-v", "--verbose",
+    dest='verbose_count', action='count', default=0,
+    help="increases log verbosity for each occurence",
+)
+
+if __name__ == '__main__':
+    arguments, remainder = parser.parse_known_args()
+
+    # Sets log level to WARN going more verbose for each new -v.
+    logging.basicConfig(
+        format='%(process)d %(levelname)s: %(message)s',
+        level=max(3 - arguments.verbose_count, 0) * 10,
+        stream=arguments.log,
+    )
+
+    logging.debug("This is `cached` wrapper program. Running with commandline {}.".format(sys.argv))
+    logging.debug("arguments are %s", arguments)
+    logging.debug("command is %s", remainder)
+
+    cache_dir = arguments.cache_dir
+    if cache_dir is None:
+        cache_dir = './.cached'
+    logging.info("using cache at path %s", cache_dir)
+
+    FSProcessCache(cache_dir).run(
+        remainder[0].encode('utf8'),
+        [e.encode('utf8') for e in remainder],
+        arguments.input or [],
+        arguments.output or [1],
+    )
